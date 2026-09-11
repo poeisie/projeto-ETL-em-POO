@@ -1,119 +1,144 @@
-# Projeto Integrador – Extração de Dados do IBGE (PNAD Contínua)
+# Pipeline de ETL - Smart City (Open-Meteo)
 
-## Integrantes do grupo
-- Caliel Feijó
-- Giulia Ferreira
-- Sarah Cyrne Ferreira
+Pipeline de ETL que extrai dados de clima e de qualidade do ar da
+[Open-Meteo](https://open-meteo.com) (APIs públicas, sem necessidade de
+cadastro ou chave de acesso), carrega o resultado bruto em coleções do
+MongoDB, transforma esses dados com pandas e carrega o resultado final
+em tabelas SQLite.
 
-## Descrição
+Segue o mesmo padrão do projeto original de PNAD Contínua/IBGE
+(`Extract` / `Transform` / `Load`), adaptado para uma fonte de dados de
+smart city.
 
-Este projeto dá continuidade à solução construída em aula (Aula 02 –
-Engenharia de Dados), que utiliza a API de Agregados do IBGE
-(`servicodados.ibge.gov.br`) e Programação Orientada a Objetos (POO) em
-Python para extrair dados da **Tabela 4093 do SIDRA**:
-
-> Pessoas de 14 anos ou mais de idade, total, na força de trabalho, ocupadas,
-> desocupadas, fora da força de trabalho, em situação de informalidade e
-> respectivas taxas e níveis, por sexo.
-
-## Estrutura do projeto (igual à criada em aula)
+## Estrutura do projeto
 
 ```
-.
-├── src/
-│   ├── __init__.py
-│   ├── extract.py      # Classe Extract: acessa a API e retorna o JSON
-│   └── load.py          # Classe Load: salva os dados em arquivo .json
-├── main.py               # Executa a extração e o salvamento dos dados
-├── requirements.txt
-├── .gitignore
-└── README.md
+src/
+  extract.py    # Extract: busca dados de clima (clima()) e qualidade do ar (qualidade_ar())
+                # na Open-Meteo, e relê dados já carregados no MongoDB
+  transform.py  # Transform: transforma os dados brutos em DataFrames prontos para o SQLite
+  load.py       # Load: salva em JSON local (load_json), no MongoDB (load_mongo) ou em SQLite (load_sqlite)
+run_etl.py      # ponto de entrada do pipeline (Extract -> Load -> Extract -> Transform -> Load), em main()
+jsons/          # saídas de exemplo em JSON
 ```
 
-Cada classe tem uma única responsabilidade (princípio da responsabilidade
-única, apresentado em aula):
-- **`Extract`** só extrai os dados da API;
-- **`Load`** só salva os dados em disco (arquivo `.json`).
+### `Extract`
 
-## O que foi adaptado em relação ao código da aula
+- `clima(cidade, variaveis=None, dias_previsao=1)`: busca, na Forecast
+  API da Open-Meteo, a série horária de variáveis climáticas (ver
+  `Extract.VARIAVEIS_CLIMA`) para uma cidade.
+- `qualidade_ar(cidade, poluentes=None, dias_previsao=1)`: busca, na Air
+  Quality API da Open-Meteo, a série horária de concentração de
+  poluentes (ver `Extract.POLUENTES`) para uma cidade.
+- `extract_collection_from_mongo(db_name, collection_name)`: relê todos
+  os documentos de uma coleção do MongoDB (por exemplo, a que
+  `Load.load_mongo` acabou de popular), para alimentar a etapa de
+  transformação.
+- `Extract.CIDADES`, `Extract.VARIAVEIS_CLIMA` e `Extract.POLUENTES`:
+  dicionários com os conjuntos fechados de cidades, variáveis
+  climáticas e poluentes suportados. `cidade`, cada item de
+  `variaveis` e cada item de `poluentes` são validados contra esses
+  dicionários — um valor inválido gera `ValueError`.
+- As URLs base de cada API (`self.base_url_clima` e
+  `self.base_url_qualidade_ar`) são definidas uma única vez, no
+  `__init__`, e não aparecem soltas dentro dos métodos.
+- A conexão com o MongoDB (`self.client`) é criada uma única vez, no
+  `__init__`, e encerrada com `close()`.
 
-Em aula, o método `extract_pnadc()` tinha a URL fixa, apenas para a
-variável **4099** (taxa de desocupação) e o estado de **Pernambuco**
-(`N3[26]`). Para resolver o desafio proposto (extrair outros estados e
-outras variáveis **sem duplicar código**), o método foi adaptado para
-receber `variavel` e `localidade` como parâmetros:
+### `Transform`
 
-```python
-def extract_pnadc(self, variavel, localidade="26"):
-    url = (
-        "https://servicodados.ibge.gov.br/api/v3/agregados/4093"
-        "/periodos/201201-202601"
-        f"/variaveis/{variavel}"
-        f"?localidades=N3[{localidade}]&classificacao=2[all]"
-    )
-    response = requests.get(url)
-    data = response.json()
-    return data
+- `transform_clima(data)`: recebe o dicionário bruto retornado pela
+  Forecast API (o mesmo salvo no MongoDB) e devolve um `DataFrame` com
+  uma linha por hora (cidade, data_hora, variáveis climáticas), pronto
+  para carga no SQLite.
+- `transform_qualidade_ar(data)`: mesma lógica, para o dicionário bruto
+  retornado pela Air Quality API.
+
+### `Load`
+
+- `load_json(nome_arquivo, data)`: salva os dados extraídos em
+  `jsons/<nome_arquivo>.json`.
+- `load_mongo(data, db_name, collection_name)`: insere os dados
+  (dicionário único ou lista de dicionários) na coleção informada e
+  fecha a conexão com o MongoDB (`close()`) logo em seguida.
+- `load_sqlite(df, nome_banco="smart_city.db", nome_tabela="clima")`:
+  salva um `DataFrame` (já transformado) em uma tabela de um banco
+  SQLite local.
+- A conexão com o MongoDB (`self.client`) é criada uma única vez, no
+  `__init__` da classe.
+
+## Configuração do Ambiente
+
+### Windows
+
+Criação do venv
+
 ```
-
-Assim, a mesma classe/método é reutilizado para:
-
-| Variável | Código |
-|---|---|
-| Taxa de desocupação | 4099 |
-| Taxa de participação na força de trabalho | 4096 |
-| Taxa de informalidade | 12466 |
-
-E para os estados que o grupo quiser consultar, bastando informar o
-código IBGE da Unidade da Federação (ex.: 26 = Pernambuco, 23 = Ceará,
-25 = Paraíba etc.).
-
-No `main.py`, dois dicionários (`VARIAVEIS` e `ESTADOS`) definem quais
-variáveis e quais estados serão extraídos, e um laço `for` percorre todas
-as combinações, chamando sempre o mesmo método `extract_pnadc()` e
-salvando cada resultado em um arquivo `.json` diferente (ex.:
-`pernambuco_taxa_desocupacao.json`, `ceara_taxa_informalidade.json`, etc.).
-
-## Como executar
-
-```bash
-# 1. Clonar o repositório
-git clone <URL_DO_REPOSITORIO>
-cd <NOME_DO_REPOSITORIO>
-
-# 2. Criar e ativar o ambiente virtual
 python -m venv .venv
-source .venv/bin/activate     # Windows: .venv\Scripts\activate
+```
 
-# 3. Instalar as dependências
+Ativação do venv
+
+```
+.venv\Scripts\activate
+```
+
+### Linux/Mac
+
+Criação do venv
+
+```
+python3 -m venv .venv
+```
+
+Ativação do venv
+
+```
+source .venv/bin/activate
+```
+
+### Dependências
+
+```
 pip install -r requirements.txt
-
-# 4. Executar o projeto
-python main.py
 ```
 
-Ao final, o script gera um arquivo `.json` para cada combinação de
-estado + variável, na raiz do projeto.
+### Variáveis de ambiente
 
-## Como adicionar mais estados ou variáveis
+Crie um arquivo `.env` na raiz do projeto com a string de conexão do
+MongoDB (veja `.env.example`):
 
-Basta editar os dicionários `ESTADOS` e `VARIAVEIS` no início do
-`main.py` — não é necessário alterar `extract.py` nem `load.py`:
-
-```python
-ESTADOS = {
-    "26": "pernambuco",
-    "23": "ceara",
-    "25": "paraiba",
-    "21": "maranhao",   # exemplo de novo estado
-}
+```
+MONGODB_URI=<sua_connection_string>
 ```
 
-Códigos IBGE de estado (Unidade da Federação - N3) mais usados no
-Nordeste: 21-Maranhão, 22-Piauí, 23-Ceará, 24-Rio Grande do Norte,
-25-Paraíba, 26-Pernambuco, 27-Alagoas, 28-Sergipe, 29-Bahia.
+## Executando o pipeline
 
-## Observação
+```
+python run_etl.py
+```
 
-A pasta do ambiente virtual (`.venv`) **não deve ser enviada** ao
-repositório — ela já está listada no `.gitignore`.
+O pipeline roda em três etapas:
+
+1. Extrai os dados de clima e de qualidade do ar de uma cidade via
+   Open-Meteo, e insere o resultado bruto de cada consulta em uma
+   coleção própria (`Clima` e `QualidadeAr`) do banco `SmartCity` no
+   MongoDB configurado.
+2. Relê esses mesmos dados do MongoDB e os transforma em DataFrames
+   (uma linha por hora).
+3. Salva os DataFrames transformados nas tabelas `clima` e
+   `qualidade_ar` do banco SQLite local `smart_city.db` (arquivo
+   gerado na raiz do projeto, não versionado).
+
+## Ideias para quem quiser ir além
+
+- Trocar a cidade/variáveis/poluentes fixos em `run_etl.py` por
+  parâmetros de linha de comando.
+- Adicionar outras APIs de smart city (ex.: mobilidade urbana, energia)
+  seguindo o mesmo padrão de `Extract`/`Transform`/`Load`.
+- Como `load_mongo` fecha a conexão ao final de cada chamada, quando o
+  pipeline precisa popular mais de uma coleção na mesma execução (como
+  aqui, com `Clima` e `QualidadeAr`), a solução mais simples é criar
+  uma instância de `Load` por chamada, como feito em `run_etl.py`. Uma
+  alternativa mais avançada é gerenciar a conexão de forma "preguiçosa"
+  (lazy), reaproveitando-a entre chamadas.

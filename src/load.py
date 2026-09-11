@@ -1,16 +1,85 @@
-import json
+import os
+import sqlite3
+
+import pandas as pd
+from dotenv import load_dotenv
+from pymongo import MongoClient
+from pymongo.server_api import ServerApi
+
+load_dotenv()
 
 
-class Load():
+class Load:
     """
-    Classe responsável apenas por salvar os dados extraídos em um arquivo
-    JSON (princípio da responsabilidade única: extrair é tarefa da classe
-    Extract, salvar é tarefa da classe Load).
+    Responsável por persistir os dados do pipeline: o resultado bruto da
+    extração em um arquivo JSON local ou em uma coleção do MongoDB, e o
+    resultado já transformado em uma tabela de um banco SQLite.
     """
 
     def __init__(self):
-        pass
+        self.mongo_uri = os.getenv("MONGODB_URI")
+        self.client = MongoClient(self.mongo_uri, server_api=ServerApi("1"))
 
-    def load_json(self, nome_doc, data):
-        with open(f"{nome_doc}.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    def close(self) -> None:
+        """Encerra a conexão com o MongoDB."""
+        self.client.close()
+
+    def load_json(self, nome_arquivo: str, data: dict | list[dict]) -> None:
+        """
+        Salva o resultado da extração em um arquivo JSON local, em jsons/.
+
+        Atributos:
+            nome_arquivo: nome do arquivo de destino, sem extensão
+            data: dicionário ou lista de dicionários retornada pela API
+                da Open-Meteo
+        """
+        os.makedirs("jsons", exist_ok=True)
+        with open(f"jsons/{nome_arquivo}.json", "w", encoding="UTF-8") as f:
+            f.write(str(data))
+
+        print(f"Dados salvos com sucesso em 'jsons/{nome_arquivo}.json'!")
+
+    def load_mongo(self, data: dict | list[dict], db_name: str, collection_name: str) -> None:
+        """
+        Insere o resultado bruto da extração em uma coleção do MongoDB.
+        Aceita tanto um único documento (dict) — como as respostas da
+        Open-Meteo — quanto uma lista de documentos.
+
+        Atributos:
+            data: dicionário ou lista de dicionários retornada pela API
+                da Open-Meteo
+            db_name: nome do banco de dados no MongoDB
+            collection_name: nome da coleção onde os documentos serão inseridos
+        """
+        collection = self.client[db_name][collection_name]
+
+        if isinstance(data, list):
+            if data:
+                collection.insert_many(data)
+        elif data:
+            collection.insert_one(data)
+
+        print(f"Dados inseridos com sucesso na coleção '{collection_name}'!")
+        self.close()
+
+    def load_sqlite(
+        self,
+        df: pd.DataFrame,
+        nome_banco: str = "smart_city.db",
+        nome_tabela: str = "clima",
+    ) -> None:
+        """
+        Salva um DataFrame (já transformado) em uma tabela de um banco
+        SQLite local.
+
+        Atributos:
+            df: DataFrame a ser salvo (ex.: retorno de `Transform.transform_clima`
+                ou `Transform.transform_qualidade_ar`)
+            nome_banco: nome do arquivo do banco SQLite
+            nome_tabela: nome da tabela onde os dados serão gravados
+        """
+        conn = sqlite3.connect(nome_banco)
+        df.to_sql(nome_tabela, conn, if_exists="replace", index=False)
+        conn.close()
+
+        print(f"Dados salvos com sucesso na tabela '{nome_tabela}' do banco '{nome_banco}'!")
