@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 
@@ -35,7 +36,7 @@ class Load:
         """
         os.makedirs("jsons", exist_ok=True)
         with open(f"jsons/{nome_arquivo}.json", "w", encoding="UTF-8") as f:
-            f.write(str(data))
+            json.dump(data, f, ensure_ascii=False, indent=2)
 
         print(f"Dados salvos com sucesso em 'jsons/{nome_arquivo}.json'!")
 
