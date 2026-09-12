@@ -1,3 +1,13 @@
+### Equipe
+
+Caliel Feijó
+Giulia Ferreira
+Joana Farias
+Juliana Comparoto
+Paulo Marrocos
+Pedro Vinicius
+Sarah Cyrne
+
 # Pipeline de ETL - Smart City (Open-Meteo)
 
 Pipeline de ETL que extrai dados de clima e de qualidade do ar da
