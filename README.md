@@ -1,12 +1,12 @@
 ### Equipe
 
-Caliel Feijó
-Giulia Ferreira
-Joana Farias
-Juliana Comparoto
-Paulo Marrocos
-Pedro Vinicius
-Sarah Cyrne
+- Caliel Feijó
+- Giulia Ferreira
+- Joana Farias
+- Juliana Comparoto
+- Paulo Marrocos
+- Pedro Vinicius
+- Sarah Cyrne
 
 # Pipeline de ETL - Smart City (Open-Meteo)
 
