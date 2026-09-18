@@ -9,27 +9,29 @@ def main():
 
     cidade = "Recife"
 
-    print("Etapa 1: Extração das APIs da Open-Meteo!")
+    print("Etapa 1: Extração da API e persistência no MongoDB Atlas!")
     clima_bruto = ext.clima(cidade=cidade)
-    # Cada chamada a load_mongo fecha a própria conexão ao final (mesmo
-    # padrão do projeto do IBGE); por isso usamos uma instância de Load
-    # por chamada, já que aqui carregamos duas coleções diferentes.
+    # Cada chamada a load_mongo fecha a própria conexão ao final.
     Load().load_mongo(clima_bruto, "SmartCity", "Clima")
 
     qualidade_bruta = ext.qualidade_ar(cidade=cidade)
     Load().load_mongo(qualidade_bruta, "SmartCity", "QualidadeAr")
 
-    print("Etapa 2: Transformando os dados!")
+    print("Etapa 2: Recuperando do MongoDB e transformando os dados!")
     clima_docs = ext.extract_collection_from_mongo("SmartCity", "Clima")
+    if not clima_docs:
+        raise RuntimeError("A coleção 'Clima' do MongoDB Atlas está vazia.")
     df_clima = transformer.transform_clima(clima_docs[-1])
 
     qualidade_docs = ext.extract_collection_from_mongo("SmartCity", "QualidadeAr")
+    if not qualidade_docs:
+        raise RuntimeError("A coleção 'QualidadeAr' do MongoDB Atlas está vazia.")
     df_qualidade = transformer.transform_qualidade_ar(qualidade_docs[-1])
 
-    print("Etapa 3: Salvando no SQLite!")
+    print("Etapa 3: Salvando os dados transformados no NeonDB!")
     ld = Load()
-    ld.load_sqlite(df=df_clima, nome_banco="smart_city.db", nome_tabela="clima")
-    ld.load_sqlite(df=df_qualidade, nome_banco="smart_city.db", nome_tabela="qualidade_ar")
+    ld.load_neon(df=df_clima, nome_tabela="clima")
+    ld.load_neon(df=df_qualidade, nome_tabela="qualidade_ar")
     ld.close()
 
     ext.close()

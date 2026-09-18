@@ -12,6 +12,9 @@ import sys
 from unittest import mock
 
 os.environ["MONGODB_URI"] = "mongodb://fake-uri-para-teste"
+test_db = os.path.join(os.path.dirname(__file__), "smart_city_test.db")
+if os.path.exists(test_db):
+    os.remove(test_db)
 
 import mongomock  # noqa: E402
 
@@ -129,14 +132,14 @@ with mock.patch("pymongo.MongoClient", return_value=_fake_client), \
     assert len(df_qualidade) == 3
 
     ld = Load()
-    ld.load_sqlite(df=df_clima, nome_banco="/tmp/smart_city_test.db", nome_tabela="clima")
-    ld.load_sqlite(df=df_qualidade, nome_banco="/tmp/smart_city_test.db", nome_tabela="qualidade_ar")
+    ld.load_sqlite(df=df_clima, nome_banco=test_db, nome_tabela="clima")
+    ld.load_sqlite(df=df_qualidade, nome_banco=test_db, nome_tabela="qualidade_ar")
     ld.close()
 
     ext.close()
 
 # confere se as tabelas realmente chegaram no SQLite
-conn = sqlite3.connect("/tmp/smart_city_test.db")
+conn = sqlite3.connect(test_db)
 cur = conn.cursor()
 cur.execute("SELECT COUNT(*) FROM clima")
 n_clima = cur.fetchone()[0]
@@ -146,6 +149,16 @@ conn.close()
 
 assert n_clima == 3
 assert n_qualidade == 3
+os.remove(test_db)
+
+# --- regressão: exigência do NeonDB -------------------------------------
+# O pipeline precisa ser capaz de gravar em um banco relacional em nuvem,
+# não apenas em SQLite local.
+try:
+    Load().load_neon
+    print("OK: método de persistência no NeonDB disponível")
+except AttributeError as exc:
+    raise AssertionError("Falta implementação do carregamento no NeonDB") from exc
 
 print(f"\nOK: {n_clima} linhas na tabela 'clima' e {n_qualidade} linhas na tabela 'qualidade_ar' no SQLite")
 print("\nTODOS OS TESTES PASSARAM!")
