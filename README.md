@@ -1,5 +1,15 @@
 # ETL Smart City
 
+## Equipe
+
+- Caliel Feijo
+- Giulia Ferreira
+- Joana Farias
+- Juliana Comparoto
+- Paulo Marrocos
+- Pedro Vinicius
+- Sarah Cyrne
+
 Pipeline de ETL desenvolvido em Python com orientacao a objetos para coletar dados de clima e qualidade do ar, armazenar os dados brutos no MongoDB Atlas e carregar os dados transformados no NeonDB.
 
 > Fluxo obrigatorio da entrega: **API -> MongoDB Atlas -> Transformacao -> NeonDB**
@@ -120,10 +130,6 @@ Esse teste valida a extracao, as validacoes de entrada, a gravacao e leitura do 
 - Nunca compartilhe o arquivo `.env` ou strings de conexao com senhas.
 - Use usuarios com apenas as permissoes necessarias no MongoDB Atlas e no NeonDB.
 - Se uma credencial for exposta, revogue-a e gere outra imediatamente.
-
-## Equipe
-
-Caliel Feijo, Giulia Ferreira, Joana Farias, Juliana Comparoto, Paulo Marrocos, Pedro Vinicius e Sarah Cyrne.
 
 ## Links
 
