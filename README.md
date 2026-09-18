@@ -6,7 +6,7 @@
 - Giulia Ferreira
 - Joana Farias
 - Juliana Comparoto
-- Paulo Marrocos
+- [Paulo Marrocos](https://github.com/paulosds2318)
 - Pedro Vinicius
 - Sarah Cyrne
 
