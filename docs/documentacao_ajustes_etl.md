@@ -62,11 +62,14 @@ O arquivo [README.md](../README.md) foi atualizado para refletir a nova arquitet
 
 ### 3.4 Ajuste do ambiente
 
-O arquivo [.env.example](../.env.example) foi atualizado com a variável:
+Cada integrante deve criar seu próprio arquivo `.env` local, que permanece fora do controle de versão. Esse arquivo deve conter as duas conexões necessárias:
 
 ```env
+MONGODB_URI=mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/?appName=<nome>
 NEON_DB_URL=postgresql://<usuario>:<senha>@<host>:5432/<database>?sslmode=require
 ```
+
+O arquivo `.env.example` é apenas um modelo opcional e não contém credenciais reais. O arquivo `.env` está listado no `.gitignore` e não deve ser publicado.
 
 Além disso, o arquivo [requirements.txt](../requirements.txt) foi ajustado para incluir a dependência do PostgreSQL com `psycopg2-binary`.
 
@@ -83,7 +86,7 @@ A arquitetura ficou alinhada ao que foi solicitado em aula e ao que foi pedido n
 
 ## 5. Validação executada
 
-Foi realizado o teste do pipeline com o comando:
+Foi realizado o teste local do pipeline com o comando:
 
 ```bash
 python test_pipeline.py
@@ -93,6 +96,8 @@ Resultado obtido:
 
 - execução concluída com sucesso;
 - mensagem final: "TODOS OS TESTES PASSARAM!"
+
+Esse teste usa APIs simuladas, `mongomock` para representar o MongoDB Atlas e SQLite apenas como apoio à validação local. A execução de produção usa o MongoDB Atlas e o NeonDB por meio do `run_etl.py`.
 
 Isso confirma que a lógica do ETL continua funcionando corretamente no ambiente validado.
 
