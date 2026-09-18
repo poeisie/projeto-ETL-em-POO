@@ -121,8 +121,7 @@ NEON_DB_URL=postgresql://<usuario>:<senha>@<host>:5432/<database>?sslmode=requir
 ```
 
 Os valores reais devem permanecer locais e fora do controle de versão.
-O arquivo `.env.example` contém um template seguro para orientar a
-configuração da máquina de cada aluno ou desenvolvedor.
+O arquivo `.env` é ignorado pelo Git e não deve ser publicado.
 
 ## Executando o pipeline
 
@@ -145,6 +144,22 @@ O pipeline roda em quatro etapas obrigatórias:
 Para validar a entrega localmente, também foi incluída uma suíte de
 testes automatizados (`test_pipeline.py`) que verifica a lógica de
 extração, transformação e persistência com dados simulados.
+
+Execute a validação local com:
+
+```
+python test_pipeline.py
+```
+
+O teste usa `mongomock` para simular o MongoDB Atlas e SQLite apenas como
+apoio à validação local. A carga de produção continua sendo feita pelo
+`run_etl.py`, diretamente no NeonDB.
+
+Para a demonstração completa, configure as duas variáveis no `.env` e
+execute `python run_etl.py`. O programa consulta as APIs, grava os dados
+brutos nas coleções `SmartCity.Clima` e `SmartCity.QualidadeAr`, relê esses
+documentos, transforma-os e grava as tabelas `clima` e `qualidade_ar` no
+NeonDB.
 
 ## Ideias para quem quiser ir além
 

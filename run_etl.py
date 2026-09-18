@@ -19,9 +19,13 @@ def main():
 
     print("Etapa 2: Recuperando do MongoDB e transformando os dados!")
     clima_docs = ext.extract_collection_from_mongo("SmartCity", "Clima")
+    if not clima_docs:
+        raise RuntimeError("A coleção 'Clima' do MongoDB Atlas está vazia.")
     df_clima = transformer.transform_clima(clima_docs[-1])
 
     qualidade_docs = ext.extract_collection_from_mongo("SmartCity", "QualidadeAr")
+    if not qualidade_docs:
+        raise RuntimeError("A coleção 'QualidadeAr' do MongoDB Atlas está vazia.")
     df_qualidade = transformer.transform_qualidade_ar(qualidade_docs[-1])
 
     print("Etapa 3: Salvando os dados transformados no NeonDB!")
