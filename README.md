@@ -47,7 +47,9 @@ NeonDB (PostgreSQL)
 
 As classes principais seguem o padrao `Extract`, `Transform` e `Load`.
 
-## Pre-requisitos
+## Para executar o projeto
+
+Os itens abaixo sao condicoes tecnicas para executar a ETL em nuvem. Eles nao representam requisitos adicionais da atividade:
 
 - Python 3.10 ou superior
 - Conta no MongoDB Atlas com um cluster acessivel
