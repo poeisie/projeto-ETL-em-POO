@@ -9,6 +9,7 @@
 - Paulo Marrocos
 - Pedro Vinicius
 - Sarah Cyrne
+- Vinicius Gabriel
 
 Pipeline de ETL desenvolvido em Python com orientacao a objetos para coletar dados de clima e qualidade do ar, armazenar os dados brutos no MongoDB Atlas e carregar os dados transformados no NeonDB.
 
