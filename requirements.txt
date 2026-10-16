@@ -5,3 +5,4 @@ pandas
 psycopg2-binary
 mongomock
 reportlab
+prefect>=3.0

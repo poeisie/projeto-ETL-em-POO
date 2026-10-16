@@ -50,8 +50,10 @@ NeonDB (PostgreSQL)
 |   |-- extract.py       # Extracao das APIs e leitura do MongoDB Atlas
 |   |-- transform.py     # Transformacao dos documentos em DataFrames
 |   `-- load.py          # Carga no MongoDB Atlas e no NeonDB
-|-- run_etl.py           # Ponto de entrada do pipeline em nuvem
+|-- flow_etl.py          # Orquestracao da pipeline com Prefect (tasks + flow)
+|-- run_etl.py           # Execucao sequencial da pipeline, sem orquestrador
 |-- test_pipeline.py     # Teste local com APIs e MongoDB simulados
+|-- test_flow.py         # Teste local do flow do Prefect (sucesso e falha)
 |-- requirements.txt     # Dependencias Python
 `-- README.md
 ```
@@ -115,6 +117,68 @@ Durante a demonstracao, verifique:
 
 - MongoDB Atlas: banco `SmartCity`, colecoes `Clima` e `QualidadeAr`.
 - NeonDB: tabelas `public.clima` e `public.qualidade_ar`.
+
+## Orquestracao com Prefect
+
+O arquivo `flow_etl.py` transforma a pipeline em um fluxo orquestrado pelo [Prefect](https://www.prefect.io/). Cada etapa e uma task e o flow `ETL Smart City` organiza a execucao respeitando as dependencias:
+
+```text
+              +--> Extrair clima ----------> Salvar no MongoDB --> Ler do MongoDB --> Transformar clima ----------> Carregar no NeonDB (clima)
+ ETL Smart ---|
+   City       +--> Extrair qualidade do ar -> Salvar no MongoDB --> Ler do MongoDB --> Transformar qualidade do ar -> Carregar no NeonDB (qualidade_ar)
+```
+
+| Task | Etapa | Novas tentativas |
+| --- | --- | --- |
+| Extrair clima / Extrair qualidade do ar | Chamada a Open-Meteo | 3 (a cada 10 s) |
+| Salvar dados brutos no MongoDB Atlas | Grava a resposta bruta | 2 (a cada 5 s) |
+| Ler dados brutos do MongoDB Atlas | Le o documento mais recente | 2 (a cada 5 s) |
+| Transformar clima / qualidade do ar | Gera o DataFrame com pandas | - |
+| Carregar no NeonDB | Recria e carrega a tabela | 2 (a cada 10 s) |
+
+- Os ramos de clima e de qualidade do ar sao independentes e rodam em paralelo.
+- Dentro de cada ramo, uma task so comeca quando a anterior termina com sucesso. A leitura do MongoDB depende explicitamente da gravacao (`wait_for`), ja que nao recebe dados dela.
+- Se uma task falhar depois das novas tentativas, as tasks seguintes daquele ramo nao rodam (ficam como `NotReady`) e o flow termina como `Failed` com o erro original, o que facilita identificar onde a pipeline quebrou.
+- Cada task registra no log do Prefect o que fez (quantidade de registros extraidos, linhas carregadas etc.).
+
+### Acompanhando as execucoes na interface do Prefect
+
+1. Em um terminal, suba o servidor local do Prefect:
+
+   ```bash
+   prefect server start
+   ```
+
+   A interface fica em http://127.0.0.1:4200.
+
+2. Em outro terminal (com o ambiente virtual ativo), aponte para esse servidor e execute o flow:
+
+   ```bash
+   prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api
+   python flow_etl.py
+   ```
+
+   Para outra cidade ou mais dias de previsao: `python flow_etl.py --cidade Fortaleza --dias 3`.
+
+3. Na interface, abra **Runs** para ver a execucao do flow, o grafo de tasks com o estado de cada uma (`Completed`, `Failed`, `NotReady`), a duracao e os logs.
+
+### Execucao agendada (opcional)
+
+Para automatizar a execucao, o flow pode ficar disponivel como deployment agendado de hora em hora:
+
+```bash
+python flow_etl.py --serve
+```
+
+O deployment `etl-smart-city-horaria` aparece em **Deployments** na interface. Por la tambem da para disparar uma execucao manual com **Quick run**. O processo precisa continuar aberto para as execucoes acontecerem; encerre com `Ctrl+C`.
+
+### Testando o flow sem credenciais
+
+```bash
+python test_flow.py
+```
+
+O teste usa um servidor temporario do Prefect e dubles da Open-Meteo, do MongoDB e do NeonDB para verificar tres cenarios: execucao completa com sucesso, falha da API de clima (com as novas tentativas e o flow terminando como `Failed`) e cidade invalida.
 
 ## Validacao local
 
