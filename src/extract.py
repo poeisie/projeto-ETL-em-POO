@@ -1,11 +1,10 @@
-import os
+from datetime import datetime, timezone
 
 import requests
-from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 
-load_dotenv()
+from src.config import MONGODB_URI
 
 
 class Extract:
@@ -58,12 +57,21 @@ class Extract:
     def __init__(self):
         self.base_url_clima = "https://api.open-meteo.com/v1/forecast"
         self.base_url_qualidade_ar = "https://air-quality-api.open-meteo.com/v1/air-quality"
-        self.mongo_uri = os.getenv("MONGODB_URI")
-        self.client = MongoClient(self.mongo_uri, server_api=ServerApi("1"))
+        self.mongo_uri = MONGODB_URI
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = MongoClient(self.mongo_uri, server_api=ServerApi("1"))
+        return self._client
 
     def close(self) -> None:
         """Encerra a conexão com o MongoDB."""
-        self.client.close()
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
 
     def clima(
         self,
@@ -105,6 +113,7 @@ class Extract:
 
         data = response.json()
         data["cidade"] = cidade
+        data["data_extracao"] = datetime.now(timezone.utc).isoformat()
 
         print(f"Dados de clima extraídos com sucesso da Open-Meteo para {cidade}!")
         return data
@@ -149,20 +158,26 @@ class Extract:
 
         data = response.json()
         data["cidade"] = cidade
+        data["data_extracao"] = datetime.now(timezone.utc).isoformat()
 
         print(f"Dados de qualidade do ar extraídos com sucesso da Open-Meteo para {cidade}!")
         return data
 
-    def extract_collection_from_mongo(self, db_name: str, collection_name: str) -> list[dict]:
+    def extract_collection_from_mongo(
+        self,
+        db_name: str,
+        collection_name: str,
+        cidade: str | None = None,
+    ) -> list[dict]:
         """
-        Busca todos os documentos de uma coleção do MongoDB.
-
-        Atributos:
-            db_name: nome do banco de dados no MongoDB
-            collection_name: nome da coleção a ser lida
+        Busca os documentos de uma coleção do MongoDB, ordenados por
+        `data_extracao` crescente para manter a consistência temporal.
+        Se `cidade` for informado, filtra os documentos da metrópole solicitada.
         """
         collection = self.client[db_name][collection_name]
-        documentos = list(collection.find())
+        filtro = {"cidade": cidade} if cidade else {}
+        documentos = list(collection.find(filtro).sort("data_extracao", 1))
 
-        print(f"Dados lidos com sucesso da coleção '{collection_name}'!")
+        print(f"Dados lidos com sucesso da coleção '{collection_name}' (filtro={filtro})!")
         return documentos
+

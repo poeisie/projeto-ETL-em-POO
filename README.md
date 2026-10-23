@@ -47,9 +47,14 @@ NeonDB (PostgreSQL)
 ```text
 .
 |-- src/
+|   |-- config.py        # Centralizador de configuracoes e leitura do .env
 |   |-- extract.py       # Extracao das APIs e leitura do MongoDB Atlas
 |   |-- transform.py     # Transformacao dos documentos em DataFrames
-|   `-- load.py          # Carga no MongoDB Atlas e no NeonDB
+|   |-- load.py          # Carga no MongoDB Atlas e no NeonDB
+|   |-- dashboard_data.py # Consultas otimizadas e aggregations do NeonDB
+|   `-- style.css        # Design System e estilizacao CSS profissional
+|-- dashboard/
+|   `-- app.py           # Dashboard analitico interativo em Streamlit
 |-- flow_etl.py          # Orquestracao da pipeline com Prefect (tasks + flow)
 |-- run_etl.py           # Execucao sequencial da pipeline, sem orquestrador
 |-- test_pipeline.py     # Teste local com APIs e MongoDB simulados
@@ -190,6 +195,40 @@ python test_pipeline.py
 
 Esse teste valida a extracao, as validacoes de entrada, a gravacao e leitura do MongoDB simulado, a transformacao em DataFrames e a disponibilidade do metodo de carga no NeonDB.
 
+## Melhorias de Engenharia de Dados (Pipeline PNADC Reference)
+
+Em conformidade com as diretrizes da disciplina:
+
+1. **Centralizacao de Configuracao (`src/config.py`)**:
+   - As variaveis de ambiente (`MONGODB_URI`, `NEON_DB_URL`, `DB_MONGO`) sao carregadas uma unica vez pelo `src/config.py` via `python-dotenv`.
+   - Nenhum outro modulo do pipeline realiza chamadas repetidas a `os.getenv`.
+
+2. **Rastreabilidade e Versionamento Temporal (`data_extracao`)**:
+   - Cada carga bruta salva no MongoDB Atlas contem o metadado `data_extracao` (em timestamp ISO 8601 UTC).
+   - A leitura do MongoDB pelo `extract_collection_from_mongo` ordena os documentos por `data_extracao`, garantindo que o processamento transforme e alimente a carga mais recente sem descartar o historico bruto.
+
+3. **Integridade da Camada Bronze vs Tabela Final (NeonDB)**:
+   - A classe `Transform` nao utiliza indices fixos (como `[0]`) que descartem itens da lista horaria retornada pela Open-Meteo.
+   - O volume de linhas da camada bronze (24 registros/dia na chave `hourly`) e integralmente preservado no DataFrame e persistido nas tabelas `clima` e `qualidade_ar` do NeonDB.
+
+4. **Tratamento de Dados Ausentes (Nulos vs Zero)**:
+   - A API publica Open-Meteo representa dados ausentes ou estacoes inoperantes como `null` nativo no JSON (convertido para `None` pelo `requests` e `NaN` pelo `pandas`).
+   - Esses valores sao gravados estritamente como `NULL` no PostgreSQL do NeonDB (e nao mascarados como `0`), evitando distorcoes estatisticas em medias termicas e de poluicao.
+
+## Dashboard Interativo (Streamlit)
+
+O dashboard analitico consome os dados transformados diretamente do **NeonDB** e pode ser executado a partir da raiz com:
+
+```powershell
+python -m streamlit run dashboard/app.py
+```
+
+### Funcionalidades do Dashboard:
+- **Filtros**: Seletor dinamico de metropolis brasileiras com dados persistidos.
+- **Indicadores Chave (`st.metric`)**: Temperatura, Umidade, Chuva Acumulada, Vento e Indice PM2.5 com deltas e classificacoes da OMS.
+- **Visualizacoes Graficas (Plotly)**: Series temporais de clima, concentracao de gases e particulas inalaveis ($PM_{10}$ vs $PM_{2.5}$).
+- **Benchmarking & Geolocalizacao**: Ranking de qualidade do ar entre capitais brasileiras e mapa metropolitano interativo.
+
 ## Seguranca
 
 - Nunca compartilhe o arquivo `.env` ou strings de conexao com senhas.
@@ -202,3 +241,4 @@ Esse teste valida a extracao, as validacoes de entrada, a gravacao e leitura do 
 - [MongoDB Atlas](https://www.mongodb.com/atlas)
 - [NeonDB](https://neon.tech/)
 - [Branch de entrega](https://github.com/poeisie/projeto-ETL-em-POO/tree/entrega-etl-neon)
+

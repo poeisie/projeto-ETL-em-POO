@@ -1,0 +1,463 @@
+/* ==========================================================================
+   DASHBOARD SMART CITY - DARK INDIGO CYBERPUNK PALETTE (REF: OIP.webp)
+   Seguindo: /estilizacao-streamlit-css, /estilizacao-botoes-streamlit, /ui-ux-pro-max
+   ========================================================================== */
+
+/* 1. Reset Global e Correção de Overflow para Sombras */
+div[data-testid="stVerticalBlock"] {
+    overflow: visible !important;
+}
+
+/* 2. Tokens de Design Extraídos de ref/OIP.webp */
+:root {
+    --bg-page: #1a1c2e;             /* Fundo geral da página */
+    --bg-sidebar: #151624;          /* Fundo da barra lateral */
+    --card-bg: #25273c;             /* Fundo dos cartões e contêineres */
+    --card-bg-elevated: #2e304a;    /* Fundo de cartões em destaque */
+    --card-border: rgba(90, 95, 138, 0.35); /* Bordas sutis */
+    --card-hover-border: rgba(91, 80, 188, 0.7);
+
+    /* Cores de Acento da Imagem de Referência */
+    --primary-indigo: #5b50bc;       /* Botões primários, gradientes e abas ativas */
+    --primary-indigo-hover: #6d61dc;
+    --accent-electric-blue: #4833e0;
+    --accent-cyan: #479ccf;          /* Linha de umidade, destaques */
+    --accent-pink: #bc4f86;          /* PM2.5, destaques magenta/rosa */
+    --accent-lime: #c2d58f;          /* Badges de sucesso / Economia verde */
+    --accent-amber: #e5a443;         /* Alertas e PM10 */
+    --accent-purple-soft: #a89cf2;   /* Texto secundário com tom lavanda */
+
+    /* Tipografia e Textos Vívidos */
+    --text-white: #ffffff;
+    --text-primary: #f0f2ff;
+    --text-muted: #b4b9d2;          /* Contraste aumentado para melhor leitura */
+    --text-subtle: #7e839f;
+    
+    /* Sombras e Elevações */
+    --shadow-card: 0 4px 20px rgba(10, 11, 20, 0.45);
+    --shadow-glow-indigo: 0 4px 16px rgba(91, 80, 188, 0.35);
+    --shadow-glow-lime: 0 2px 10px rgba(194, 213, 143, 0.25);
+}
+
+/* 3. Aplicação do Fundo e Estilo Global */
+.stApp, [data-testid="stAppViewContainer"] {
+    background-color: var(--bg-page) !important;
+    color: var(--text-primary) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+/* ==========================================================================
+   4. CABEÇALHO NATIVO DO STREAMLIT (stHeader)
+   Cor base translúcida fosca com backdrop-filter e sombreado leve
+   ========================================================================== */
+header[data-testid="stHeader"] {
+    background-color: rgba(26, 28, 46, 0.8) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-bottom: 1px solid rgba(90, 95, 138, 0.3) !important;
+    box-shadow: 0 4px 18px rgba(10, 11, 20, 0.35) !important;
+    z-index: 999990 !important;
+}
+
+/* Garante a exibição dos controles superiores (Deploy e Menu 3 pontinhos) */
+header[data-testid="stHeader"] > div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Botões do cabeçalho (Deploy, Menu 3 Pontinhos, Rerun, etc.) */
+header[data-testid="stHeader"] button {
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: var(--text-white) !important;
+    background: transparent !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+header[data-testid="stHeader"] button:hover {
+    background: rgba(91, 80, 188, 0.25) !important;
+}
+
+header[data-testid="stHeader"] svg {
+    visibility: visible !important;
+    fill: #ffffff !important;
+    color: #ffffff !important;
+}
+
+/* Botão de Deploy específico do Streamlit */
+header[data-testid="stHeader"] [data-testid="stDeployButton"] button,
+header[data-testid="stHeader"] [data-testid="stStatusWidget"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* ==========================================================================
+   5. BARRA LATERAL (Sidebar)
+   ========================================================================== */
+section[data-testid="stSidebar"] {
+    background-color: var(--bg-sidebar) !important;
+    border-right: 1px solid var(--card-border) !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
+    padding-top: 1.5rem !important;
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4 {
+    color: var(--text-white) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+}
+
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] label {
+    color: var(--text-muted) !important;
+}
+
+/* Selectbox e Inputs na Sidebar */
+div[data-baseweb="select"] > div {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 10px !important;
+    color: var(--text-white) !important;
+}
+
+div[data-baseweb="select"] span {
+    color: var(--text-white) !important;
+}
+
+/* ==========================================================================
+   6. HEADER CONTAINER PRINCIPAL (Hero Bar)
+   ========================================================================== */
+.st-key-header_container {
+    background: linear-gradient(135deg, #25273c 0%, #1c1d30 100%) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 14px !important;
+    padding: 20px 24px !important;
+    margin-bottom: 20px !important;
+    box-shadow: var(--shadow-card) !important;
+}
+
+.st-key-header_container h1 {
+    color: var(--text-white) !important;
+    font-size: 1.85rem !important;
+    font-weight: 700 !important;
+    margin: 0 0 4px 0 !important;
+    letter-spacing: -0.02em !important;
+}
+
+.st-key-header_container p {
+    color: var(--accent-purple-soft) !important;
+    font-size: 0.95rem !important;
+    margin: 0 !important;
+}
+
+/* ==========================================================================
+   7. NAVEGAÇÃO POR ABAS PILLS (st.pills + /estilizacao-botoes-streamlit)
+   ========================================================================== */
+.stApp div[class*="st-key-nav_pills"] div[data-testid="stButtonGroup"] {
+    background: #1c1e30 !important;
+    border: 1px solid var(--card-border) !important;
+    padding: 6px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    margin-bottom: 1.2rem !important;
+}
+
+.stApp div[class*="st-key-nav_pills"] div[data-testid="stButtonGroup"] button {
+    flex: 1 0 auto !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-weight: 600 !important;
+    font-size: 0.92rem !important;
+    border-radius: 8px !important;
+    padding: 8px 18px !important;
+    transition: all 0.25s ease !important;
+    white-space: nowrap !important;
+}
+
+.stApp div[class*="st-key-nav_pills"] div[data-testid="stButtonGroup"] button:hover {
+    color: var(--text-white) !important;
+    background: rgba(91, 80, 188, 0.18) !important;
+}
+
+.stApp div[class*="st-key-nav_pills"] div[data-testid="stButtonGroup"] button[aria-checked="true"] {
+    background: var(--primary-indigo) !important;
+    color: var(--text-white) !important;
+    box-shadow: var(--shadow-glow-indigo) !important;
+    cursor: default !important;
+    pointer-events: none !important;
+}
+
+/* ==========================================================================
+   8. CARDS DE KPIS E MÉTRICAS (CORES VÍVIDAS E ALTO CONTRASTE)
+   ========================================================================== */
+.st-key-card_temp,
+.st-key-card_humidity,
+.st-key-card_rain,
+.st-key-card_wind,
+.st-key-card_air_quality,
+.st-key-card_mini_side,
+.st-key-card_chart_clima,
+.st-key-card_chart_rain,
+.st-key-card_chart_qualidade,
+.st-key-card_chart_poluentes,
+.st-key-card_chart_disp,
+.st-key-card_chart_ranking,
+.st-key-card_chart_map,
+.st-key-card_recommendation,
+.st-key-card_tabela {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 14px !important;
+    padding: 16px 20px !important;
+    box-shadow: var(--shadow-card) !important;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.st-key-card_temp:hover,
+.st-key-card_humidity:hover,
+.st-key-card_rain:hover,
+.st-key-card_wind:hover,
+.st-key-card_air_quality:hover,
+.st-key-card_mini_side:hover,
+.st-key-card_chart_clima:hover,
+.st-key-card_chart_rain:hover,
+.st-key-card_chart_qualidade:hover,
+.st-key-card_chart_poluentes:hover,
+.st-key-card_chart_disp:hover,
+.st-key-card_chart_ranking:hover,
+.st-key-card_chart_map:hover,
+.st-key-card_recommendation:hover,
+.st-key-card_tabela:hover {
+    border-color: var(--card-hover-border) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 24px rgba(91, 80, 188, 0.25) !important;
+}
+
+/* Titulos dos Cards (Labels das Métricas) - Mais Claros e Vívidos */
+div[data-testid="stMetricLabel"] {
+    color: #b8bdd6 !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+}
+
+/* Valor Numérico Principal */
+div[data-testid="stMetricValue"] {
+    color: #ffffff !important;
+    font-size: 1.85rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+}
+
+/* Sublegendas e Deltas (Brisa Leve, Atenção, Chuva Detectada, etc.) - Cores Vivas */
+div[data-testid="stMetricDelta"] {
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+}
+
+div[data-testid="stMetricDelta"] svg {
+    display: inline-block !important;
+}
+
+/* Delta quando positivo/verde */
+div[data-testid="stMetricDelta"] [data-testid="stMetricDeltaIcon-Up"] + div,
+div[data-testid="stMetricDelta"] [data-testid="stMetricDeltaIcon-Down"] + div {
+    color: var(--accent-lime) !important;
+}
+
+/* Delta sem cor de alerta (off) */
+div[data-testid="stMetricDelta"] > div {
+    color: #479ccf !important; /* Ciano vívido para textos complementares */
+    font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   9. BOTÕES STREAMLIT (st.button)
+   ========================================================================== */
+div.stButton > button[kind="primary"] {
+    background: var(--primary-indigo) !important;
+    color: var(--text-white) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    padding: 8px 18px !important;
+    box-shadow: var(--shadow-glow-indigo) !important;
+    transition: all 0.2s ease !important;
+}
+
+div.stButton > button[kind="primary"]:hover {
+    background: var(--primary-indigo-hover) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(91, 80, 188, 0.5) !important;
+}
+
+div.stButton > button:not([kind="primary"]) {
+    background: rgba(91, 80, 188, 0.18) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid rgba(91, 80, 188, 0.45) !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+
+div.stButton > button:not([kind="primary"]):hover {
+    background: var(--primary-indigo) !important;
+    color: var(--text-white) !important;
+    border-color: var(--primary-indigo) !important;
+}
+
+/* ==========================================================================
+   10. BADGES DE QUALIDADE E STATUS
+   ========================================================================== */
+.badge-ref {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-top: 5px;
+}
+
+.badge-lime {
+    background: rgba(194, 213, 143, 0.25) !important;
+    color: #d8ec9d !important;
+    border: 1px solid rgba(194, 213, 143, 0.6) !important;
+    box-shadow: var(--shadow-glow-lime) !important;
+}
+
+.badge-pink {
+    background: rgba(188, 79, 134, 0.25) !important;
+    color: #ff85c2 !important;
+    border: 1px solid rgba(188, 79, 134, 0.6) !important;
+}
+
+.badge-indigo {
+    background: rgba(91, 80, 188, 0.3) !important;
+    color: #c7bdfb !important;
+    border: 1px solid rgba(91, 80, 188, 0.6) !important;
+}
+
+/* ==========================================================================
+   11. CARD DE RECOMENDAÇÃO
+   ========================================================================== */
+.recommendation-card {
+    background: linear-gradient(145deg, #25273c 0%, #1e2034 100%);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 8px;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+.recommendation-card:hover {
+    border-color: var(--card-hover-border) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 18px rgba(91, 80, 188, 0.2) !important;
+}
+
+.recommendation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.recommendation-title {
+    color: var(--text-white);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.recommendation-val {
+    color: var(--accent-lime);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 6px 0;
+}
+
+/* ==========================================================================
+   12. TABELA DE SÉRIE TEMPORAL DO NEONDB (GLASSCARD ESCURO)
+   Elimina o fundo branco e adapta às cores do dashboard
+   ========================================================================== */
+div[data-testid="stDataFrame"] {
+    background-color: #1e2034 !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: var(--shadow-card) !important;
+}
+
+/* Tabela Glide / Canvas Interna do Streamlit */
+div[data-testid="stDataFrame"] > div {
+    background-color: #1e2034 !important;
+}
+
+/* ==========================================================================
+   13. ÍCONES PROFISSIONAIS SVG (Substituição de Emojis)
+   ========================================================================== */
+.ui-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: -0.15em;
+    margin-right: 6px;
+    line-height: 1;
+}
+
+.ui-icon svg {
+    width: 1.1em;
+    height: 1.1em;
+    stroke-width: 2;
+    stroke: currentColor;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ui-icon-brand {
+    color: var(--primary-indigo);
+}
+
+.ui-icon-cyan {
+    color: var(--accent-cyan);
+}
+
+.ui-icon-lime {
+    color: var(--accent-lime);
+}
+
+.ui-icon-pink {
+    color: var(--accent-pink);
+}
+
+/* ==========================================================================
+   14. OCULTAR BARRA DE FERRAMENTAS DO PLOTLY (Modebar)
+   Remove as opções de zoom, pan, salvar png e reset ao passar o mouse
+   ========================================================================== */
+.modebar-container,
+.modebar,
+.js-plotly-plot .plotly .modebar {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
