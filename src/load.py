@@ -1,15 +1,15 @@
 import json
 import os
 import sqlite3
+import time
 
 import pandas as pd
 import psycopg2
-from dotenv import load_dotenv
 from psycopg2.extras import execute_values
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 
-load_dotenv()
+from src.config import MONGODB_URI, NEON_DB_URL
 
 
 class Load:
@@ -21,13 +21,46 @@ class Load:
     """
 
     def __init__(self):
-        self.mongo_uri = os.getenv("MONGODB_URI")
-        self.neon_dsn = os.getenv("NEON_DB_URL")
-        self.client = MongoClient(self.mongo_uri, server_api=ServerApi("1"))
+        self.mongo_uri = MONGODB_URI
+        self.neon_dsn = NEON_DB_URL
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = MongoClient(self.mongo_uri, server_api=ServerApi("1"))
+        return self._client
+
+    def _get_neon_connection(self, max_retries: int = 3, delay_seconds: float = 1.5):
+        """Abre conexão com o NeonDB com retentativas contra cold start do compute node."""
+        if not self.neon_dsn:
+            raise ValueError("NEON_DB_URL não configurada no ambiente ou no arquivo .env.")
+
+        ultimo_erro = None
+        for tentativa in range(1, max_retries + 1):
+            try:
+                return psycopg2.connect(
+                    self.neon_dsn,
+                    connect_timeout=15,
+                    keepalives=1,
+                    keepalives_idle=30,
+                    keepalives_interval=10,
+                    keepalives_count=5,
+                )
+            except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
+                ultimo_erro = e
+                if tentativa < max_retries:
+                    time.sleep(delay_seconds * tentativa)
+                else:
+                    raise ultimo_erro
 
     def close(self) -> None:
         """Encerra a conexão com o MongoDB."""
-        self.client.close()
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+
 
     def load_json(self, nome_arquivo: str, data: dict | list[dict]) -> None:
         """
@@ -72,6 +105,7 @@ class Load:
         df: pd.DataFrame,
         nome_tabela: str,
         schema: str = "public",
+        drop_table: bool = False,
     ) -> None:
         """
         Persiste um DataFrame já transformado em um banco PostgreSQL
@@ -84,9 +118,10 @@ class Load:
         if not self.neon_dsn:
             raise ValueError("NEON_DB_URL não configurada. Defina a string de conexão do NeonDB.")
 
-        with psycopg2.connect(self.neon_dsn) as conn:
+        with self._get_neon_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(f'DROP TABLE IF EXISTS "{schema}"."{nome_tabela}"')
+                if drop_table:
+                    cur.execute(f'DROP TABLE IF EXISTS "{schema}"."{nome_tabela}"')
 
                 colunas_sql = []
                 for coluna in df.columns:
@@ -104,8 +139,15 @@ class Load:
                     colunas_sql.append(f'"{nome_coluna}" {tipo}')
 
                 cur.execute(
-                    f'CREATE TABLE "{schema}"."{nome_tabela}" ({", ".join(colunas_sql)})'
+                    f'CREATE TABLE IF NOT EXISTS "{schema}"."{nome_tabela}" ({", ".join(colunas_sql)})'
                 )
+
+                if "cidade" in df.columns:
+                    cidades_unicas = list(df["cidade"].unique())
+                    cur.execute(
+                        f'DELETE FROM "{schema}"."{nome_tabela}" WHERE "cidade" = ANY(%s)',
+                        (cidades_unicas,),
+                    )
 
                 registros = []
                 for _, linha in df.iterrows():

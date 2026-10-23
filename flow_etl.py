@@ -25,11 +25,10 @@ import pandas as pd
 from prefect import flow, get_run_logger, task
 from prefect.futures import wait
 
+from src.config import DB_MONGO
 from src.extract import Extract
 from src.load import Load
 from src.transform import Transform
-
-DB_MONGO = "SmartCity"
 
 
 # --- Extração ---------------------------------------------------------------
