@@ -190,7 +190,7 @@ if df.empty:
             f"<p style='color: #8e92ab;'>Esta metrópole faz parte da lista oficial da API Open-Meteo, mas ainda não possui séries temporais no banco relacional.</p>",
             unsafe_allow_html=True
         )
-        if st.button(f"Sincronizar {cidade_selecionada} agora (Open-Meteo ➔ NeonDB)", type="primary"):
+        if st.button(f"Sincronizar {cidade_selecionada} agora (Open-Meteo ➔ MongoDB ➔ NeonDB)", type="primary"):
             with st.spinner(f"Coletando e persistindo telemetria de {cidade_selecionada}..."):
                 sincronizar_cidade_api_neon(cidade_selecionada)
                 st.cache_data.clear()

@@ -191,7 +191,7 @@ if df.empty:
             f"<p style='color: #8e92ab;'>Esta metrópole faz parte da lista oficial da API Open-Meteo, mas ainda não possui séries temporais no banco relacional.</p>",
             unsafe_allow_html=True
         )
-        if st.button(f"Sincronizar {cidade_selecionada} agora (Open-Meteo ➔ NeonDB)", type="primary"):
+        if st.button(f"Sincronizar {cidade_selecionada} agora (Open-Meteo ➔ MongoDB ➔ NeonDB)", type="primary"):
             with st.spinner(f"Coletando e persistindo telemetria de {cidade_selecionada}..."):
                 sincronizar_cidade_api_neon(cidade_selecionada)
                 st.cache_data.clear()
@@ -615,3 +615,38 @@ if mostrar_tabela_dados:
             use_container_width=True,
             hide_index=True
         )
+
+# ==============================================================================
+# 12. ASSISTENTE: PERGUNTE AOS DADOS (GPT + NeonDB, mesmas classes do servidor MCP)
+# ==============================================================================
+from src.assistente import AssistenteGPT
+from src.banco import BancoComLimite
+from src.config import GPT_API_KEY, GPT_BASE_URL, MODELO, NEON_DB_URL
+
+st.markdown("<br>", unsafe_allow_html=True)
+with st.container(border=True, key="card_assistente"):
+    st.markdown(f"#### {ICON_CORR} **Pergunte aos Dados (Assistente GPT)**", unsafe_allow_html=True)
+    st.caption(
+        "O GPT transforma a pergunta em SQL, o NeonDB executa em modo somente leitura "
+        "(no máximo 10 linhas) e o GPT explica o resultado."
+    )
+    if not GPT_API_KEY:
+        st.info("Configure a variável GPT no arquivo .env para habilitar o assistente.")
+    else:
+        pergunta = st.text_input(
+            "Sua pergunta",
+            placeholder=f"Ex.: Qual foi a hora mais quente em {cidade_selecionada}?",
+            key="pergunta_assistente",
+        )
+        if st.button("Perguntar", key="btn_assistente") and pergunta.strip():
+            with st.spinner("Consultando o NeonDB..."):
+                try:
+                    assistente = AssistenteGPT(GPT_API_KEY, MODELO, base_url=GPT_BASE_URL)
+                    resultado = assistente.responder(pergunta, BancoComLimite(NEON_DB_URL))
+                except Exception as e:
+                    st.error(f"Não foi possível responder: {e}")
+                else:
+                    st.success(resultado["resposta"])
+                    with st.expander("SQL gerado e dados usados"):
+                        st.code(resultado["sql"], language="sql")
+                        st.dataframe(pd.DataFrame(resultado["dados"]), use_container_width=True, hide_index=True)
