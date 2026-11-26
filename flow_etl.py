@@ -94,18 +94,20 @@ def salvar_mongo(dados: dict, colecao: str) -> str:
     retry_delay_seconds=5,
     tags=["extract", "mongodb"],
 )
-def ler_mongo(colecao: str) -> dict:
-    """Lê o documento mais recente da coleção, que alimenta a transformação."""
+def ler_mongo(colecao: str, cidade: str) -> dict:
+    """Lê o documento mais recente da cidade na coleção, que alimenta a transformação."""
     ext = Extract()
     try:
-        documentos = ext.extract_collection_from_mongo(DB_MONGO, colecao)
+        documentos = ext.extract_collection_from_mongo(DB_MONGO, colecao, cidade=cidade)
     finally:
         ext.close()
 
     if not documentos:
-        raise RuntimeError(f"A coleção '{colecao}' do MongoDB Atlas está vazia.")
+        raise RuntimeError(f"A coleção '{colecao}' do MongoDB Atlas não tem registros de {cidade}.")
 
-    get_run_logger().info("%d documento(s) em %s.%s; usando o mais recente.", len(documentos), DB_MONGO, colecao)
+    get_run_logger().info(
+        "%d documento(s) de %s em %s.%s; usando o mais recente.", len(documentos), cidade, DB_MONGO, colecao
+    )
     return documentos[-1]
 
 
@@ -178,14 +180,14 @@ def etl_smart_city(cidade: str = "Recife", dias_previsao: int = 1) -> dict:
     clima_bruto = extrair_clima.submit(cidade, dias_previsao)
     clima_salvo = salvar_mongo.submit(clima_bruto, "Clima")
     # A leitura não recebe dados da gravação, então a dependência é explícita.
-    clima_doc = ler_mongo.submit("Clima", wait_for=[clima_salvo])
+    clima_doc = ler_mongo.submit("Clima", cidade, wait_for=[clima_salvo])
     df_clima = transformar_clima.submit(clima_doc)
     carga_clima = carregar_neon.submit(df_clima, "clima")
 
     # Ramo 2: qualidade do ar (independente do ramo 1, roda em paralelo)
     qualidade_bruta = extrair_qualidade_ar.submit(cidade, dias_previsao)
     qualidade_salva = salvar_mongo.submit(qualidade_bruta, "QualidadeAr")
-    qualidade_doc = ler_mongo.submit("QualidadeAr", wait_for=[qualidade_salva])
+    qualidade_doc = ler_mongo.submit("QualidadeAr", cidade, wait_for=[qualidade_salva])
     df_qualidade = transformar_qualidade_ar.submit(qualidade_doc)
     carga_qualidade = carregar_neon.submit(df_qualidade, "qualidade_ar")
 

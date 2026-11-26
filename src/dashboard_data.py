@@ -160,23 +160,12 @@ def fetch_all_cities_summary() -> pd.DataFrame:
 
 
 def sincronizar_cidade_api_neon(cidade: str) -> None:
-    """Extrai dados atualizados da API Open-Meteo, transforma e salva no NeonDB para a cidade."""
-    from src.extract import Extract
-    from src.transform import Transform
-    from src.load import Load
+    """
+    Atualiza os dados da cidade executando a pipeline ETL completa
+    (API Open-Meteo -> MongoDB Atlas -> Transformação -> NeonDB), sem pular
+    o armazenamento bruto no MongoDB.
+    """
+    from run_etl import executar_etl_cidade
 
-    ext = Extract()
-    trans = Transform()
-    ld = Load()
-
-    c_raw = ext.clima(cidade=cidade)
-    q_raw = ext.qualidade_ar(cidade=cidade)
-
-    df_c = trans.transform_clima(c_raw)
-    df_q = trans.transform_qualidade_ar(q_raw)
-
-    ld.load_neon(df=df_c, nome_tabela="clima")
-    ld.load_neon(df=df_q, nome_tabela="qualidade_ar")
-    ld.close()
-    ext.close()
+    executar_etl_cidade(cidade=cidade)
 
