@@ -8,3 +8,5 @@ reportlab
 prefect>=3.0
 streamlit
 plotly
+fastmcp
+openai

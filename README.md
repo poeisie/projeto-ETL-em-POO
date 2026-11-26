@@ -52,6 +52,8 @@ NeonDB (PostgreSQL)
 |   |-- transform.py     # Transformacao dos documentos em DataFrames
 |   |-- load.py          # Carga no MongoDB Atlas e no NeonDB
 |   |-- dashboard_data.py # Consultas otimizadas e aggregations do NeonDB
+|   |-- banco.py         # BancoNeon / BancoComLimite: acesso somente leitura ao NeonDB
+|   |-- assistente.py    # AssistenteGPT: pergunta em portugues -> SQL -> resposta
 |   `-- style.css        # Design System e estilizacao CSS profissional
 |-- dashboard/
 |   `-- app.py           # Dashboard analitico interativo em Streamlit
@@ -59,6 +61,9 @@ NeonDB (PostgreSQL)
 |-- run_etl.py           # Execucao sequencial da pipeline, sem orquestrador
 |-- test_pipeline.py     # Teste local com APIs e MongoDB simulados
 |-- test_flow.py         # Teste local do flow do Prefect (sucesso e falha)
+|-- servidor.py          # Servidor MCP (FastMCP) com o banco do projeto
+|-- cliente_teste.py     # Cliente de teste do servidor MCP
+|-- test_mcp.py          # Teste local do servidor MCP, sem banco e sem GPT
 |-- requirements.txt     # Dependencias Python
 `-- README.md
 ```
@@ -228,6 +233,110 @@ python -m streamlit run dashboard/app.py
 - **Indicadores Chave (`st.metric`)**: Temperatura, Umidade, Chuva Acumulada, Vento e Indice PM2.5 com deltas e classificacoes da OMS.
 - **Visualizacoes Graficas (Plotly)**: Series temporais de clima, concentracao de gases e particulas inalaveis ($PM_{10}$ vs $PM_{2.5}$).
 - **Benchmarking & Geolocalizacao**: Ranking de qualidade do ar entre capitais brasileiras e mapa metropolitano interativo.
+
+## Servidor MCP com o banco do projeto (Aula 10)
+
+O arquivo `servidor.py` expoe o banco NeonDB da pipeline como um servidor MCP ([FastMCP](https://gofastmcp.com/)). Um app de IA (Claude Desktop, VS Code) se conecta a ele e passa a consultar os dados de clima e qualidade do ar, inclusive com perguntas em portugues respondidas pelo GPT.
+
+```text
+App de IA (Claude Desktop, VS Code)
+    |  chama uma ferramenta
+    v
+servidor.py (FastMCP) --> AssistenteGPT (src/assistente.py) --> API do GPT
+    |
+    v
+BancoComLimite / BancoNeon (src/banco.py, somente leitura)
+    |
+    v
+NeonDB: tabelas clima e qualidade_ar (carregadas pela pipeline)
+```
+
+| Arquivo | Conteudo |
+| --- | --- |
+| `src/banco.py` | `BancoNeon` (conexao somente leitura, `consultar`, `listar_tabelas`, `descrever_tabela`, `esquema_completo`, `contar_linhas`) e `BancoComLimite` |
+| `src/assistente.py` | `AssistenteGPT` (`perguntar`, `gerar_sql`, `explicar_resultado`, `responder`) |
+| `servidor.py` | Servidor MCP com as ferramentas |
+| `cliente_teste.py` | Cliente de teste pelo terminal |
+| `test_mcp.py` | Teste local sem banco e sem chave do GPT |
+
+### Ferramentas
+
+| Ferramenta | O que faz |
+| --- | --- |
+| `listar_tabelas()` | Lista as tabelas do banco |
+| `descrever_tabela(tabela)` | Colunas e tipos de uma tabela |
+| `contar_linhas(tabela)` | Quantas linhas a tabela tem (Exercicio 1) |
+| `executar_select(sql)` | Executa um SELECT (no maximo 10 linhas) |
+| `perguntar_ao_banco(pergunta)` | O GPT gera o SQL, o banco executa e o GPT explica |
+| `cidades_disponiveis()` | Cidades com dados no banco |
+| `resumo_cidade(cidade)` | Medias e extremos de clima e poluentes, e horas com PM2.5 acima do limite da OMS |
+| `ranking_qualidade_ar()` | Cidades ordenadas pela media de PM2.5 |
+
+### Exercicios da Aula 10
+
+1. **Nova ferramenta**: `contar_linhas(tabela: str) -> int`. Como nome de tabela nao pode ir no `%s`, o nome e conferido com a lista de tabelas reais antes da consulta (evita SQL Injection).
+2. **Modelo configuravel**: `src/config.py` le a variavel `MODELO` do `.env`, com `gpt-6-luna` como padrao, e o servidor passa esse valor ao `AssistenteGPT`.
+3. **Heranca**: `BancoComLimite(BancoNeon)` sobrescreve `consultar` e devolve no maximo 10 linhas, reaproveitando o construtor e o metodo do pai com `super()`. O servidor usa `BancoComLimite` no lugar de `BancoNeon`. As consultas de catalogo (`listar_tabelas`, `descrever_tabela`) nao passam pelo limite, para nenhuma tabela ficar de fora do esquema enviado ao GPT.
+
+### Configuracao
+
+Alem das variaveis da pipeline, o `.env` recebe:
+
+```dotenv
+GPT=sk-...
+# Opcional: servico gratuito compativel com a biblioteca openai
+# GPT_BASE_URL=https://...
+# Opcional: modelo (padrao gpt-6-luna)
+# MODELO=gpt-6-luna
+```
+
+A conexao com o NeonDB usa `NEON_DB_URL` (o nome `NEON`, usado na aula, tambem e aceito). Ela e aberta em modo somente leitura: o banco recusa `INSERT`, `UPDATE`, `DELETE` e `DROP`, mesmo se o GPT gerar esse SQL.
+
+### Executando
+
+```powershell
+pip install -r requirements.txt
+python cliente_teste.py                 # lista as ferramentas, conta as linhas e faz uma pergunta
+fastmcp dev inspector servidor.py       # interface visual para testar cada ferramenta
+python test_mcp.py                      # teste local, sem banco e sem chave do GPT
+```
+
+Para usar no Claude Desktop ou no VS Code, adicione ao arquivo de configuracao de MCP do aplicativo:
+
+```json
+{
+  "mcpServers": {
+    "smart-city": {
+      "command": "C:\\caminho\\do\\projeto\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\caminho\\do\\projeto\\servidor.py"]
+    }
+  }
+}
+```
+
+Exemplos de perguntas: "Qual cidade tem o pior ar?", "Qual foi a hora mais quente em Recife?", "Choveu em Curitiba?".
+
+## Produto de dados (Desafio da Disciplina)
+
+O produto le **somente do NeonDB**, nunca direto da API. O caminho do dado:
+
+```text
+Open-Meteo (APIs publicas de clima e qualidade do ar)
+    |  Extract (flow_etl.py / run_etl.py, orquestrado e agendado pelo Prefect)
+    v
+MongoDB Atlas - camada bronze (resposta bruta + data_extracao)
+    |  Transform (pandas)
+    v
+NeonDB - camada prata (tabelas clima e qualidade_ar, carga sem duplicar por cidade)
+    |
+    +--> Dashboard Streamlit (dashboard/app.py), com a secao "Pergunte aos Dados"
+    +--> Servidor MCP (servidor.py), usado por apps de IA
+```
+
+- **Dashboard**: indicadores, graficos, ranking e mapa, todos a partir do NeonDB. A secao **Pergunte aos Dados** usa as mesmas classes do servidor MCP (`AssistenteGPT` + `BancoComLimite`) e mostra o SQL gerado e os dados usados.
+- **Sincronizar cidade**: o botao do dashboard roda a pipeline completa (`run_etl.executar_etl_cidade`), passando pelo MongoDB antes do NeonDB.
+- **Servidor MCP**: as ferramentas `resumo_cidade` e `ranking_qualidade_ar` entregam os indicadores prontos para um agente de IA.
+- **Credenciais**: todas lidas uma unica vez em `src/config.py`, a partir do `.env` (fora do codigo).
 
 ## Seguranca
 
