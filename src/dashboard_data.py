@@ -161,10 +161,11 @@ def fetch_all_cities_summary() -> pd.DataFrame:
 
 def sincronizar_cidade_api_neon(cidade: str) -> None:
     """
-    Roda a pipeline completa para a cidade: Open-Meteo -> MongoDB Atlas (bruto)
-    -> Transformação -> NeonDB. Assim o dashboard nunca grava no NeonDB um dado
-    que não passou pela camada bruta.
+    Atualiza os dados da cidade executando a pipeline ETL completa
+    (API Open-Meteo -> MongoDB Atlas -> Transformação -> NeonDB), sem pular
+    o armazenamento bruto no MongoDB.
     """
     from run_etl import executar_etl_cidade
 
     executar_etl_cidade(cidade=cidade)
+

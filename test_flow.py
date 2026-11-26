@@ -9,6 +9,10 @@ validar a ORQUESTRAÇÃO sem rede externa nem credenciais:
 2. Execução com falha: se a API de clima cair, a task de extração é
    tentada de novo, as tasks dependentes não rodam e o flow termina
    como "Failed".
+3. Parâmetro inválido: cidade fora da lista faz o flow falhar.
+4. Filtro por cidade: um documento mais recente de outra cidade no
+   MongoDB não contamina a carga da cidade pedida.
+5. Botão do dashboard: a sincronização passa pelo MongoDB antes do NeonDB.
 
 Roda num servidor temporário do Prefect (prefect_test_harness), então
 não aparece na interface do Prefect da demonstração.
@@ -68,7 +72,8 @@ class FakeResponse:
         return dict(self._payload)
 
 
-def fake_requests_get(url, params=None):
+def fake_requests_get(url, params=None, **kwargs):
+    assert kwargs.get("timeout"), "requests.get deve ser chamado com timeout"
     if "air-quality" in url:
         return FakeResponse(FAKE_QUALIDADE_RESPONSE)
     return FakeResponse(FAKE_CLIMA_RESPONSE)
@@ -82,8 +87,9 @@ def fake_load_neon(self, df, nome_tabela, schema="public"):
     self.load_sqlite(df=df, nome_banco=TEST_DB, nome_tabela=nome_tabela)
 
 
-def patches(requests_get):
-    fake_client = mongomock.MongoClient("mongodb://fake-uri-para-teste")
+def patches(requests_get, fake_client=None):
+    if fake_client is None:
+        fake_client = mongomock.MongoClient("mongodb://fake-uri-para-teste")
     return [
         mock.patch("src.extract.MongoClient", return_value=fake_client),
         mock.patch("src.load.MongoClient", return_value=fake_client),
@@ -92,8 +98,8 @@ def patches(requests_get):
     ]
 
 
-def run_with(requests_get, **params):
-    ativos = patches(requests_get)
+def run_with(requests_get, fake_client=None, **params):
+    ativos = patches(requests_get, fake_client)
     for p in ativos:
         p.start()
     try:
@@ -107,6 +113,14 @@ def contar(tabela):
     conn = sqlite3.connect(TEST_DB)
     try:
         return conn.execute(f"SELECT COUNT(*) FROM {tabela}").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def cidades_carregadas(tabela):
+    conn = sqlite3.connect(TEST_DB)
+    try:
+        return {linha[0] for linha in conn.execute(f"SELECT DISTINCT cidade FROM {tabela}")}
     finally:
         conn.close()
 
@@ -137,9 +151,9 @@ def main():
         # 2. Falha na API de clima ----------------------------------------
         chamadas_clima = []
 
-        def api_clima_fora(url, params=None):
+        def api_clima_fora(url, params=None, **kwargs):
             if "air-quality" in url:
-                return fake_requests_get(url, params)
+                return fake_requests_get(url, params, **kwargs)
             chamadas_clima.append(url)
             raise requests.ConnectionError("Open-Meteo indisponível (simulado)")
 
@@ -152,6 +166,38 @@ def main():
         estado = run_with(fake_requests_get, cidade="Cidade Que Não Existe")
         assert estado.is_failed()
         print("OK: cidade inválida faz o flow falhar antes de chamar a API")
+
+        # 4. Filtro por cidade na leitura do MongoDB -----------------------
+        # Um documento de outra cidade, gravado "depois", não pode ser o
+        # escolhido para a carga de Recife.
+        mongo = mongomock.MongoClient("mongodb://fake-uri-para-teste")
+        for colecao, resposta in (("Clima", FAKE_CLIMA_RESPONSE), ("QualidadeAr", FAKE_QUALIDADE_RESPONSE)):
+            mongo[flow_etl.DB_MONGO][colecao].insert_one(
+                {**resposta, "cidade": "Fortaleza", "data_extracao": "9999-12-31T00:00:00+00:00"}
+            )
+        estado = run_with(fake_requests_get, fake_client=mongo, cidade="Recife")
+        assert estado.is_completed(), estado.name
+        assert cidades_carregadas("clima") == {"Recife"}, cidades_carregadas("clima")
+        assert cidades_carregadas("qualidade_ar") == {"Recife"}, cidades_carregadas("qualidade_ar")
+        print("OK: leitura do MongoDB usa apenas documentos da cidade pedida")
+
+    # 5. Sincronização pelo dashboard passa pelo MongoDB ------------------
+    from src.dashboard_data import sincronizar_cidade_api_neon
+
+    mongo = mongomock.MongoClient("mongodb://fake-uri-para-teste")
+    ativos = patches(fake_requests_get, mongo)
+    for p in ativos:
+        p.start()
+    try:
+        sincronizar_cidade_api_neon("Fortaleza")
+    finally:
+        for p in reversed(ativos):
+            p.stop()
+    for colecao in ("Clima", "QualidadeAr"):
+        n = mongo[flow_etl.DB_MONGO][colecao].count_documents({"cidade": "Fortaleza"})
+        assert n == 1, f"{colecao}: esperado 1 documento bruto de Fortaleza, há {n}"
+    assert cidades_carregadas("clima") == {"Fortaleza"}
+    print("OK: sincronização do dashboard grava no MongoDB antes de carregar no NeonDB")
 
     os.remove(TEST_DB)
     print("\nTODOS OS TESTES DO FLOW PASSARAM!")

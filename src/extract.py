@@ -57,6 +57,10 @@ class Extract:
     def __init__(self):
         self.base_url_clima = "https://api.open-meteo.com/v1/forecast"
         self.base_url_qualidade_ar = "https://air-quality-api.open-meteo.com/v1/air-quality"
+        # Tempo máximo (em segundos) de espera por resposta da Open-Meteo. Sem
+        # isso, uma API travada deixaria a chamada parada indefinidamente e as
+        # novas tentativas do Prefect nunca seriam disparadas.
+        self.timeout = 30
         self.mongo_uri = MONGODB_URI
         self._client = None
 
@@ -108,7 +112,7 @@ class Extract:
             "timezone": "auto",
         }
 
-        response = requests.get(self.base_url_clima, params=params)
+        response = requests.get(self.base_url_clima, params=params, timeout=self.timeout)
         response.raise_for_status()
 
         data = response.json()
@@ -153,7 +157,7 @@ class Extract:
             "timezone": "auto",
         }
 
-        response = requests.get(self.base_url_qualidade_ar, params=params)
+        response = requests.get(self.base_url_qualidade_ar, params=params, timeout=self.timeout)
         response.raise_for_status()
 
         data = response.json()

@@ -64,7 +64,7 @@ class FakeResponse:
         return dict(self._payload)
 
 
-def fake_requests_get(url, params=None):
+def fake_requests_get(url, params=None, **kwargs):
     if "air-quality" in url:
         return FakeResponse(FAKE_QUALIDADE_RESPONSE)
     return FakeResponse(FAKE_CLIMA_RESPONSE)
